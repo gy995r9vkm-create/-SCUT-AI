@@ -1,0 +1,192 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState } from 'react';
+import { motion } from 'motion/react';
+import { Shield, Key, Eye, Lock, Globe, Server, UserCheck, Smartphone, RefreshCw, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { User } from '../types';
+
+interface SecurityCenterPageProps {
+  user: User | null;
+  onNavigate: (page: string) => void;
+  onAddLog: (action: string, details: string, type: 'chat' | 'billing' | 'api' | 'security') => Promise<void>;
+}
+
+interface ActiveSession {
+  id: string;
+  ip: string;
+  location: string;
+  device: string;
+  status: 'active' | 'revoked';
+}
+
+export default function SecurityCenterPage({ user, onNavigate, onAddLog }: SecurityCenterPageProps) {
+  const [activeMfa, setActiveMfa] = useState(false);
+  const [rateLimitValue, setRateLimitValue] = useState(100);
+  const [isRotating, setIsRotating] = useState(false);
+  const [sessions, setSessions] = useState<ActiveSession[]>([
+    { id: 's-1', ip: '84.15.112.92', location: 'London, UK', device: 'Chrome / macOS (Active)', status: 'active' },
+    { id: 's-2', ip: '198.51.100.42', location: 'Frankfurt, DE', device: 'Safari / iPhone 15 Pro', status: 'active' }
+  ]);
+
+  const handleRevokeSession = async (id: string, ip: string) => {
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'revoked' } : s));
+    await onAddLog('Session Terminated', `Revoked active token for IP ${ip}`, 'security');
+  };
+
+  const handleRotateAdminKey = () => {
+    setIsRotating(true);
+    setTimeout(async () => {
+      setIsRotating(false);
+      await onAddLog('Master Encryption Rotated', 'Regenerated SCUT workspace cryptographic seed', 'security');
+      alert("Master encryption key rotated. Telemetry tunnels flushed.");
+    }, 1500);
+  };
+
+  const handleToggleMfa = async () => {
+    const nextVal = !activeMfa;
+    setActiveMfa(nextVal);
+    await onAddLog('2FA Preference Modified', `MFA preference updated to ${nextVal}`, 'security');
+  };
+
+  return (
+    <div className="pt-24 pb-16 px-4 max-w-7xl mx-auto w-full text-white min-h-screen">
+      
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <div className="flex items-center gap-2 text-red-400 mb-1">
+            <Shield className="h-5 w-5 animate-pulse" />
+            <span className="text-xs uppercase tracking-widest font-bold">Privacy Controls</span>
+          </div>
+          <h1 className="text-3xl font-bold font-display">Security Center</h1>
+          <p className="text-xs text-slate-400 mt-1 font-light max-w-xl">
+            Administer workspace authentication parameters, session logins, multi-factor tokens, and global bearer credentials.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => onNavigate('chat')}
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-xl text-xs font-semibold cursor-pointer transition-all"
+          >
+            Back to Chat Workspace
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        {/* Left Cryptography & 2FA (5 Cols) */}
+        <div className="lg:col-span-5 space-y-6">
+          
+          {/* Cryptography Rotation */}
+          <div className="bg-slate-950 border border-slate-900 rounded-2xl p-5 space-y-4 shadow-lg">
+            <h2 className="text-xs uppercase tracking-widest font-bold text-slate-300 flex items-center gap-2">
+              <Key className="h-4 w-4 text-cyan-400" /> master seed key
+            </h2>
+            <p className="text-xs text-slate-400 leading-relaxed font-light">
+              This master seed encrypts on-disk prompt parameters and cached API keys using AES-256-GCM vectors.
+            </p>
+
+            <button
+              onClick={handleRotateAdminKey}
+              disabled={isRotating}
+              className="w-full py-2.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-xl text-xs font-bold text-cyan-400 flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isRotating ? 'animate-spin' : ''}`} />
+              <span>Rotate Cryptographic Master Seed</span>
+            </button>
+          </div>
+
+          {/* MFA / 2FA Settings */}
+          <div className="bg-slate-950 border border-slate-900 rounded-2xl p-5 space-y-4 shadow-lg">
+            <h2 className="text-xs uppercase tracking-widest font-bold text-slate-300 flex items-center gap-2">
+              <Smartphone className="h-4 w-4 text-cyan-400" /> Multi-Factor Verification
+            </h2>
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-xs text-slate-400 font-light leading-relaxed">
+                Require a unique OTP (One Time Password) generated by Google Authenticator or Authy to complete logins.
+              </p>
+              
+              <button 
+                onClick={handleToggleMfa}
+                className={`w-12 h-6 rounded-full p-0.5 cursor-pointer transition-colors flex ${activeMfa ? 'bg-cyan-500 justify-end' : 'bg-slate-800 justify-start'}`}
+              >
+                <div className="w-5 h-5 bg-slate-950 rounded-full shadow-md" />
+              </button>
+            </div>
+          </div>
+
+          {/* Rate limiting slider */}
+          <div className="bg-slate-950 border border-slate-900 rounded-2xl p-5 space-y-4 shadow-lg">
+            <h2 className="text-xs uppercase tracking-widest font-bold text-slate-300 flex items-center gap-2">
+              <Server className="h-4 w-4 text-cyan-400" /> API Rate Limit
+            </h2>
+            <div className="flex justify-between text-[10px] font-mono font-bold text-slate-400">
+              <span>Threshold Cap:</span>
+              <span className="text-cyan-400">{rateLimitValue} requests / min</span>
+            </div>
+            
+            <input 
+              type="range" 
+              min="20" 
+              max="200" 
+              step="10" 
+              value={rateLimitValue}
+              onChange={(e) => setRateLimitValue(parseInt(e.target.value))}
+              className="w-full h-1 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-cyan-400 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Right Session Table & Telemetry Log (7 Cols) */}
+        <div className="lg:col-span-7 bg-slate-950 border border-slate-900 rounded-2xl p-5 space-y-4 shadow-lg">
+          <h2 className="text-xs uppercase tracking-widest font-bold text-slate-300 border-b border-slate-900 pb-3">Active Session Terminals</h2>
+          
+          <div className="space-y-3">
+            {sessions.map(s => (
+              <div 
+                key={s.id} 
+                className={`p-4 rounded-xl border flex items-center justify-between gap-4 transition-all ${
+                  s.status === 'revoked' 
+                  ? 'bg-slate-900/10 border-slate-900 text-slate-500' 
+                  : 'bg-slate-900/40 border-slate-900 text-slate-200'
+                }`}
+              >
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-cyan-400 shrink-0" />
+                    <span className="text-xs font-semibold font-mono">{s.ip}</span>
+                    <span className="text-[10px] text-slate-500">({s.location})</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-light">{s.device}</p>
+                </div>
+
+                {s.status === 'active' ? (
+                  <button
+                    onClick={() => handleRevokeSession(s.id, s.ip)}
+                    className="px-3 py-1.5 rounded-lg border border-red-950/40 text-red-400 hover:bg-red-950/20 text-[10px] font-bold cursor-pointer transition-colors shrink-0"
+                  >
+                    Revoke Token
+                  </button>
+                ) : (
+                  <span className="text-[10px] uppercase font-bold text-slate-600 shrink-0">REVOKED</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-cyan-500/5 border border-cyan-500/10 rounded-xl p-3 text-[10px] leading-relaxed text-slate-400 flex gap-2.5 items-start">
+            <ShieldCheck className="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" />
+            <p className="font-light">
+              <span className="font-semibold text-cyan-400">Security Standard Compliance:</span> SCUT platform runs isolated JWT containers ensuring sessions expire safely after 14 days of idle telemetry activity.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  );
+}

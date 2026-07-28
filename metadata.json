@@ -1,0 +1,6 @@
+{
+  "name": "SCUT AI",
+  "description": "SCUT Ecosystem - Integrated platform featuring SCUT AI, SCUT Pay, Marketplace, Mica Bucurie, Developers, Business, Dashboard, and more.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
