@@ -3,14 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  deleteDoc, 
-  onSnapshot, 
-  query, 
+import {
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  deleteDoc,
+  onSnapshot,
+  query,
   orderBy,
   addDoc,
   serverTimestamp,
@@ -67,6 +67,10 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
+function adminDisabledError(): never {
+  throw new Error('Client-side admin operations are disabled. Use secured server-side admin endpoints.');
+}
+
 // User Profile Operations
 export async function saveUserDoc(uid: string, user: User): Promise<void> {
   const userRef = doc(db, 'users', uid);
@@ -86,7 +90,7 @@ export async function getUserDoc(uid: string): Promise<User | null> {
 export function listenToChats(uid: string, callback: (chats: Chat[]) => void): Unsubscribe {
   const chatsRef = collection(db, 'users', uid, 'chats');
   const q = query(chatsRef, orderBy('createdAt', 'desc'));
-  
+
   return onSnapshot(q, (snapshot) => {
     const chats: Chat[] = [];
     snapshot.forEach((docSnap) => {
@@ -95,10 +99,9 @@ export function listenToChats(uid: string, callback: (chats: Chat[]) => void): U
         ...docSnap.data()
       } as Chat);
     });
-    // Sort logic to match local sorting if createdAt strings differ
     callback(chats);
   }, (error) => {
-    console.error("Error listening to chats:", error);
+    console.error('Error listening to chats:', error);
   });
 }
 
@@ -125,7 +128,7 @@ export function listenToSavedPrompts(uid: string, callback: (prompts: SavedPromp
     });
     callback(prompts);
   }, (error) => {
-    console.error("Error listening to prompts:", error);
+    console.error('Error listening to prompts:', error);
   });
 }
 
@@ -152,7 +155,7 @@ export function listenToApiKeys(uid: string, callback: (keys: ApiKey[]) => void)
     });
     callback(keys);
   }, (error) => {
-    console.error("Error listening to api keys:", error);
+    console.error('Error listening to api keys:', error);
   });
 }
 
@@ -180,7 +183,7 @@ export function listenToActivityLogs(uid: string, callback: (logs: ActivityLog[]
     });
     callback(logs);
   }, (error) => {
-    console.error("Error listening to logs:", error);
+    console.error('Error listening to logs:', error);
   });
 }
 
@@ -214,8 +217,6 @@ export async function saveSupportTicket(ticket: {
   const path = 'support_tickets';
   try {
     const activeUid = auth.currentUser?.uid || (ticket.userId && ticket.userId !== 'undefined' ? ticket.userId : null);
-    
-    // Construct sanitized payload with zero undefined properties
     const ticketData: Record<string, any> = {
       name: (ticket.name || '').trim(),
       email: (ticket.email || '').trim(),
@@ -226,7 +227,6 @@ export async function saveSupportTicket(ticket: {
       createdAt: serverTimestamp()
     };
 
-    // Ensure absolutely no undefined fields exist
     Object.keys(ticketData).forEach((key) => {
       if (ticketData[key] === undefined) {
         ticketData[key] = null;
@@ -236,59 +236,26 @@ export async function saveSupportTicket(ticket: {
     const docRef = await addDoc(collection(db, path), ticketData);
     return docRef.id;
   } catch (error) {
-    console.warn("Firestore saveSupportTicket warning:", error);
-    // Return a generated ticket ID so submission flow completes smoothly
-    return "st_ticket_" + Math.random().toString(36).substring(2, 10);
+    console.warn('Firestore saveSupportTicket warning:', error);
+    return 'st_ticket_' + Math.random().toString(36).substring(2, 10);
   }
 }
 
-// Administrative Operations
-import { getDocs } from 'firebase/firestore';
-
+// Administrative Operations disabled on client
 export async function getAllUsers(): Promise<{ id: string; [key: string]: any }[]> {
-  try {
-    const querySnapshot = await getDocs(collection(db, 'users'));
-    const usersList: { id: string; [key: string]: any }[] = [];
-    querySnapshot.forEach((docSnap) => {
-      usersList.push({
-        id: docSnap.id,
-        ...docSnap.data()
-      });
-    });
-    return usersList;
-  } catch (error) {
-    console.error("Error fetching all users:", error);
-    return [];
-  }
+  adminDisabledError();
 }
 
 export async function getAllSupportTickets(): Promise<{ id: string; [key: string]: any }[]> {
-  try {
-    const querySnapshot = await getDocs(collection(db, 'support_tickets'));
-    const ticketsList: { id: string; [key: string]: any }[] = [];
-    querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-      ticketsList.push({
-        id: docSnap.id,
-        ...data,
-        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toLocaleString() : String(data.createdAt || '')
-      });
-    });
-    return ticketsList;
-  } catch (error) {
-    console.error("Error fetching support tickets:", error);
-    return [];
-  }
+  adminDisabledError();
 }
 
-export async function adminUpdateUser(uid: string, fields: Partial<User>): Promise<void> {
-  const userRef = doc(db, 'users', uid);
-  await setDoc(userRef, fields, { merge: true });
+export async function adminUpdateUser(_uid: string, _fields: Partial<User>): Promise<void> {
+  adminDisabledError();
 }
 
-export async function adminDeleteSupportTicket(ticketId: string): Promise<void> {
-  const ticketRef = doc(db, 'support_tickets', ticketId);
-  await deleteDoc(ticketRef);
+export async function adminDeleteSupportTicket(_ticketId: string): Promise<void> {
+  adminDisabledError();
 }
 
 // Folders Subcollection Operations (users/{uid}/folders/{folderId})
@@ -304,7 +271,7 @@ export function listenToFolders(uid: string, callback: (folders: Folder[]) => vo
     });
     callback(folders);
   }, (error) => {
-    console.error("Error listening to folders:", error);
+    console.error('Error listening to folders:', error);
   });
 }
 
@@ -317,4 +284,3 @@ export async function deleteFolder(uid: string, folderId: string): Promise<void>
   const folderRef = doc(db, 'users', uid, 'folders', folderId);
   await deleteDoc(folderRef);
 }
-
