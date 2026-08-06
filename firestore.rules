@@ -1,10 +1,68 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly([
+          'id',
+          'email',
+          'name',
+          'photoURL',
+          'subscriptionTier',
+          'usageCount',
+          'maxUsage',
+          'walletAddress',
+          'bio',
+          'createdAt',
+          'selectedCommunity',
+          'sex',
+          'approvalStatus',
+          'isApproved',
+          'rejectionReason'
+        ]);
+      allow delete: if false;
+
+      match /chats/{chatId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+
+      match /savedPrompts/{promptId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+
+      match /apiKeys/{keyId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+
+      match /activityLogs/{logId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+
+      match /folders/{folderId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+    }
+
+    match /support_tickets/{ticketId} {
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow read: if signedIn()
+        && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }
-
-
